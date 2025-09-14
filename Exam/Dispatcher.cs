@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace Exam
 {
@@ -36,11 +33,28 @@ namespace Exam
                 if (!IsRunning) break;
 
                 int newPassengers = rnd.Next(config.MinNewPassengers, config.MaxNewPassengers + 1);
-                stop.AddPassengers(newPassengers);
-                busCallEvent.Set();  
+
+
+                using (var done = new ManualResetEventSlim(false))
+                {
+                    ThreadPool.QueueUserWorkItem(_=>
+                    {
+                        try
+                        {
+                            stop.AddPassengers(newPassengers);
+                        }
+                        finally
+                        {
+                            done.Set(); // сигнал
+                        }
+                    });
+
+                    done.Wait();
+                }
+
+                busCallEvent.Set();        
                 barrier.SignalAndWait();     
             }
         }
     }
 }
-

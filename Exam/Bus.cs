@@ -45,9 +45,12 @@ namespace Exam
                 Logger.Info($"Автобус №{Number} під’їхав.");
                 int boarded = stop.BoardPassengers(Capacity);
 
-                barrier.SignalAndWait();
+                barrier.SignalAndWait(); // синхрон
 
                 Logger.Info($"Автобус №{Number} забрав {boarded}. На зупинці: {stop.WaitingPassengers}");
+
+                ThreadPool.QueueUserWorkItem(_ => { Logger.Info($"[ThreadPool] Статистика: завантаження {boarded}/{Capacity} ({(Capacity == 0 ? 0 : boarded * 100 / Capacity)}%).");
+                });
 
                 Thread.Sleep(config.BusDriveTimeMs);
             }
