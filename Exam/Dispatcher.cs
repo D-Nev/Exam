@@ -6,54 +6,49 @@ namespace Exam
     internal class Dispatcher : WorkerBase, IDispatcher
     {
         private readonly IPassengerStop stop;
-        private readonly Barrier barrier;
-        private readonly AutoResetEvent busCallEvent;
-        private readonly SimulationConfig config;
+        private readonly Barrier sync;
+        private readonly AutoResetEvent busEvt;
+        private readonly SimulationConfig cfg;
         private readonly Random rnd = new Random();
 
         public Dispatcher(IPassengerStop stop,
-                          Barrier barrier,
-                          AutoResetEvent busCallEvent,
-                          SimulationConfig config,
-                          ILogger logger)
-            : base(logger)
+        Barrier sync,AutoResetEvent busEvt, SimulationConfig cfg, ILogger log)  : base(log)
         {
             this.stop = stop;
-            this.barrier = barrier;
-            this.busCallEvent = busCallEvent;
-            this.config = config;
+            this.sync = sync;
+            this.busEvt = busEvt;
+            this.cfg = cfg;
         }
 
         protected override void Run()
         {
             while (IsRunning)
             {
-                int delay = rnd.Next(config.PassengerWaveDelayMsMin, config.PassengerWaveDelayMsMax + 1);
+                int delay = rnd.Next(cfg.PassengerWaveDelayMsMin, cfg.PassengerWaveDelayMsMax + 1);
                 Thread.Sleep(delay);
                 if (!IsRunning) break;
 
-                int newPassengers = rnd.Next(config.MinNewPassengers, config.MaxNewPassengers + 1);
-
+                int wave = rnd.Next(cfg.MinNewPassengers, cfg.MaxNewPassengers + 1);
 
                 using (var done = new ManualResetEventSlim(false))
                 {
-                    ThreadPool.QueueUserWorkItem(_=>
+                    ThreadPool.QueueUserWorkItem(_ =>
                     {
                         try
                         {
-                            stop.AddPassengers(newPassengers);
+                            stop.AddPassengers(wave);
                         }
                         finally
                         {
-                            done.Set(); // сигнал
+                            done.Set();
                         }
                     });
 
                     done.Wait();
                 }
 
-                busCallEvent.Set();        
-                barrier.SignalAndWait();     
+                busEvt.Set();
+                sync.SignalAndWait();
             }
         }
     }

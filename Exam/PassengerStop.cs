@@ -5,39 +5,38 @@ namespace Exam
 {
     internal class PassengerStop : IPassengerStop
     {
-        private readonly object lockObj = new object();
-        private int waitingPassengers;
-        private readonly Semaphore availablePassengers;
+        private readonly object gate = new object();
+        private int waiting;
+        private readonly Semaphore sem;
 
-        private readonly SimulationConfig config;
-        private readonly ILogger logger;
+        private readonly SimulationConfig cfg;
+        private readonly ILogger log;
 
-        public PassengerStop(SimulationConfig config, ILogger logger)
+        public PassengerStop(SimulationConfig cfg, ILogger log)
         {
-            this.config = config;
-            this.logger = logger;
-            waitingPassengers = 0;
-            availablePassengers = new Semaphore(0, int.MaxValue);
+            this.cfg = cfg;
+            this.log = log;
+            waiting = 0;
+            sem = new Semaphore(0, int.MaxValue);
         }
 
         public int WaitingPassengers
         {
-            get { lock (lockObj) return waitingPassengers; }
+            get { lock (gate) return waiting; }
         }
 
         public void AddPassengers(int count)
         {
             if (count <= 0) return;
 
-            lock (lockObj)
+            lock (gate)
             {
-                waitingPassengers += count;
-                logger.Info($"На зупинку прибуло {count} пасажирів. Тепер їх {waitingPassengers}");
+                waiting += count;
+                log.Info($"На зупинку прибуло {count} пасажирів. Тепер їх {waiting}");
             }
 
-            availablePassengers.Release(count);
+            sem.Release(count);
         }
-
         public int BoardPassengers(int maxSeats)
         {
             if (maxSeats <= 0) return 0;
@@ -46,13 +45,13 @@ namespace Exam
 
             for (int i = 0; i < maxSeats; i++)
             {
-                if (availablePassengers.WaitOne(config.BoardWaitPerSeatMs))
+                if (sem.WaitOne(cfg.BoardWaitPerSeatMs))
                 {
-                    lock (lockObj)
+                    lock (gate)
                     {
-                        if (waitingPassengers > 0)
+                        if (waiting > 0)
                         {
-                            waitingPassengers--;
+                            waiting--;
                             boarded++;
                         }
                     }
@@ -63,7 +62,7 @@ namespace Exam
                 }
             }
 
-            logger.Info($"Посаджено {boarded}. Залишилось {WaitingPassengers}");
+            log.Info($"Посаджено {boarded}. Залишилось {WaitingPassengers}");
             return boarded;
         }
     }

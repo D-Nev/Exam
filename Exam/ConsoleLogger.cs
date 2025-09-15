@@ -8,11 +8,11 @@ namespace Exam
 {
     internal class ConsoleLogger : ILogger
     {
-        private readonly object _lock = new();
+        private readonly object gate = new object();
 
         public void Info(string message)
         {
-            lock (_lock)
+            lock (gate)
             {
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
             }

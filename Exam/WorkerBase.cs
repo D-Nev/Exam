@@ -9,36 +9,35 @@ namespace Exam
 {
     internal abstract class WorkerBase
     {
-        protected readonly ILogger Logger;
+        protected readonly ILogger Log;
 
-        private Thread thread;
-        private volatile bool running;
+        private Thread th;
+        private volatile bool run;
 
-        protected WorkerBase(ILogger logger)
+        protected WorkerBase(ILogger log)
         {
-            Logger = logger;
+            Log = log;
         }
-
         protected abstract void Run();
 
         public void Start()
         {
-            if (running) return;
-            running = true;
-            thread = new Thread(Run)
+            if (run) return;
+            run = true;
+            th = new Thread(Run)
             {
                 IsBackground = true,
                 Name = GetType().Name
             };
-            thread.Start();
+            th.Start();
         }
 
         public void Stop()
         {
-            running = false;
+            run = false;
         }
 
-        protected bool IsRunning => running;
+        protected bool IsRunning => run;
     }
 }
 
