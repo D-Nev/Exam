@@ -1,26 +1,30 @@
-﻿using System;
+﻿using Exam.Core;
+using Exam.Core.Workers;
+using Exam.Infrastructure.Threading;
+using Exam.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Exam
+namespace Exam.Domain
 {
-    internal class Bus : WorkerBase, IBus
+    public class Bus : WorkerBase, IBus
     {
         public int Number { get; }
         public int Capacity { get; }
 
         private readonly IPassengerStop stop;
-        private readonly Barrier sync;
-        private readonly AutoResetEvent busEvt;
+        private readonly Barrier phase;
+        private readonly AutoResetEvent busEvent;
         private readonly SimulationConfig cfg;
 
         public Bus(int number,
                    int capacity,
                    IPassengerStop stop,
-                   Barrier sync,
-                   AutoResetEvent busEvt,
+                   Barrier phase,
+                   AutoResetEvent busEvent,
                    SimulationConfig cfg,
                    ILogger log)
             : base(log)
@@ -28,30 +32,35 @@ namespace Exam
             Number = number;
             Capacity = capacity;
             this.stop = stop;
-            this.sync = sync;
-            this.busEvt = busEvt;
+            this.phase = phase;
+            this.busEvent = busEvent;
             this.cfg = cfg;
         }
 
-        protected override void Run()
+        public override async Task RunAsync(CancellationToken ct)
         {
-            while (IsRunning)
+            while (!ct.IsCancellationRequested)
             {
-                busEvt.WaitOne();
-                if (!IsRunning) break;
+                await busEvent.WaitOneAsync(ct);
+
+                if (ct.IsCancellationRequested) break;
 
                 Log.Info($"Автобус №{Number} під’їхав.");
                 int boarded = stop.BoardPassengers(Capacity);
 
-                ThreadPool.QueueUserWorkItem(_ => {
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
                     int pct = Capacity == 0 ? 0 : boarded * 100 / Capacity;
                     Log.Info($"[TP] Завантаження: {boarded}/{Capacity} ({pct}%).");
                 });
-                sync.SignalAndWait();
+
+                try { phase.SignalAndWait(ct); }
+                catch (OperationCanceledException) { break; }
 
                 Log.Info($"Автобус №{Number} забрав {boarded}. На зупинці: {stop.WaitingPassengers}");
 
-                Thread.Sleep(cfg.BusDriveTimeMs);
+                try { await Task.Delay(cfg.BusDriveTimeMs, ct); }
+                catch (OperationCanceledException) { break; }
             }
         }
     }

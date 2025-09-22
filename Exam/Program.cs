@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
+using Exam.Core;
+using Exam.Domain;
+using Exam.Infrastructure.Logging;
+using Exam.Interfaces;
 
 namespace Exam
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var cfg = new SimulationConfig
             {
@@ -21,22 +26,26 @@ namespace Exam
 
             ILogger log = new ConsoleLogger();
 
-            var busEvt = new AutoResetEvent(false);
-            var sync = new Barrier(2);
+            var busEvent = new AutoResetEvent(false);
+            var phase = new Barrier(2);
 
             IPassengerStop stop = new PassengerStop(cfg, log);
-            IDispatcher disp = new Dispatcher(stop, sync, busEvt, cfg, log);
-            IBus bus = new Bus(cfg.BusNumber, cfg.BusCapacity, stop, sync, busEvt, cfg, log);
+            IDispatcher disp = new Dispatcher(stop, phase, busEvent, cfg, log);
+            IBus bus = new Bus(cfg.BusNumber, cfg.BusCapacity, stop, phase, busEvent, cfg, log);
 
-            bus.Start();
-            disp.Start();
+            using var cts = new CancellationTokenSource();
 
             log.Info("Симуляція запущена. Натисніть Enter, щоб завершити...");
-            Console.ReadLine();
+            var busTask = bus.RunAsync(cts.Token);
+            var dispTask = disp.RunAsync(cts.Token);
 
-            bus.Stop();
-            disp.Stop();
-            busEvt.Set();
+            Console.ReadLine();
+            cts.Cancel();                 
+            busEvent.Set();               
+
+            try { await Task.WhenAll(busTask, dispTask); }
+            catch (OperationCanceledException) { /* нормальне завершення */ }
+
             log.Info("Готово. Натисніть Enter для виходу.");
             Console.ReadLine();
         }

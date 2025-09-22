@@ -1,13 +1,14 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
+using Exam.Core;
+using Exam.Interfaces;
 
-namespace Exam
+namespace Exam.Domain
 {
-    internal class PassengerStop : IPassengerStop
+    public class PassengerStop : IPassengerStop
     {
         private readonly object gate = new object();
         private int waiting;
-        private readonly Semaphore sem;
+        private readonly Semaphore sem; 
 
         private readonly SimulationConfig cfg;
         private readonly ILogger log;
@@ -35,8 +36,9 @@ namespace Exam
                 log.Info($"На зупинку прибуло {count} пасажирів. Тепер їх {waiting}");
             }
 
-            sem.Release(count);
+            sem.Release(count); 
         }
+
         public int BoardPassengers(int maxSeats)
         {
             if (maxSeats <= 0) return 0;
@@ -58,7 +60,7 @@ namespace Exam
                 }
                 else
                 {
-                    break;
+                    break; 
                 }
             }
 
